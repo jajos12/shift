@@ -84,6 +84,7 @@ const config: Phaser.Types.Core.GameConfig = {
   // --- Input ---
   input: {
     keyboard: true,
+    touch: true,    // Enable multi-touch for mobile controls
   },
 
   // --- Scaling ---

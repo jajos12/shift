@@ -24,6 +24,7 @@ import { ParallaxBackground } from '../systems/ParallaxBackground';
 import { ParticleManager } from '../systems/ParticleManager';
 import { CameraManager } from '../systems/CameraManager';
 import { AudioManager } from '../systems/AudioManager';
+import { TouchControls } from '../systems/TouchControls';
 import { ALL_LEVELS, type LevelDefinition } from '../levels/LevelData';
 
 export class GameScene extends Phaser.Scene {
@@ -71,6 +72,9 @@ export class GameScene extends Phaser.Scene {
   // --- Background Music ---
   private bgm?: Phaser.Sound.BaseSound;
 
+  // --- Touch controls (mobile) ---
+  private touchControls!: TouchControls;
+
   constructor() {
     super('GameScene');
   }
@@ -114,6 +118,10 @@ export class GameScene extends Phaser.Scene {
     const startY = this.currentLevel.playerStart.y * WORLD.TILE_SIZE + WORLD.TILE_SIZE / 2;
     this.player = new Player(this, startX, startY);
     this.player.setDimensionManager(this.dimensionManager);
+
+    // --- Touch controls (auto-detects mobile) ---
+    this.touchControls = new TouchControls(this);
+    this.player.setTouchControls(this.touchControls);
 
     // --- Create exit portal with particle effect ---
     const exitX = this.currentLevel.exit.x * WORLD.TILE_SIZE + WORLD.TILE_SIZE / 2;

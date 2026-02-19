@@ -84,12 +84,22 @@ export class MenuScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    // --- Controls info ---
-    this.add.text(cx, cy + 90, [
-      '← → or A/D  —  Move',
-      '↑ or W or SPACE  —  Jump',
-      'SHIFT  —  Switch Dimension',
-    ].join('\n'), {
+    // --- Controls info (adaptive: keyboard vs touch) ---
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+    const controlLines = isMobile
+      ? [
+          '◀ ▶  —  Move',
+          '⬆  —  Jump',
+          '⇄  —  Switch Dimension',
+        ]
+      : [
+          '← → or A/D  —  Move',
+          '↑ or W or SPACE  —  Jump',
+          'SHIFT  —  Switch Dimension',
+        ];
+
+    this.add.text(cx, cy + 90, controlLines.join('\n'), {
       fontSize: '13px',
       fontFamily: 'monospace',
       color: '#666677',
@@ -97,8 +107,11 @@ export class MenuScene extends Phaser.Scene {
       lineSpacing: 6,
     }).setOrigin(0.5);
 
-    // --- Start prompt ---
-    const startText = this.add.text(cx, cy + 180, '[ Press ENTER or SPACE to Start ]', {
+    // --- Start prompt (adaptive) ---
+    const startLabel = isMobile
+      ? '[ Tap Anywhere to Start ]'
+      : '[ Press ENTER or SPACE to Start ]';
+    const startText = this.add.text(cx, cy + 180, startLabel, {
       fontSize: '18px',
       fontFamily: 'monospace',
       color: '#44ffaa',
@@ -114,11 +127,15 @@ export class MenuScene extends Phaser.Scene {
     });
 
     // --- Input: Start the game ---
-    // 'keydown-ENTER' fires once when Enter is pressed (not held)
+    // Keyboard: ENTER or SPACE
     this.input.keyboard?.on('keydown-ENTER', () => {
       this.scene.start('GameScene', { levelIndex: 0 });
     });
     this.input.keyboard?.on('keydown-SPACE', () => {
+      this.scene.start('GameScene', { levelIndex: 0 });
+    });
+    // Touch: tap anywhere on screen
+    this.input.on('pointerdown', () => {
       this.scene.start('GameScene', { levelIndex: 0 });
     });
   }

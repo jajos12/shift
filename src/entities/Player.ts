@@ -25,6 +25,7 @@
 import Phaser from 'phaser';
 import { PLAYER, DIMENSIONS } from '../utils/Constants';
 import type { DimensionManager } from '../systems/DimensionManager';
+import type { TouchControls, TouchInputState } from '../systems/TouchControls';
 
 // ============================================================
 //  GAME DEV CONCEPT: State Machine for Animation
@@ -81,6 +82,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   // --- Reference to the DimensionManager ---
   private dimensionManager!: DimensionManager;
 
+  // --- Touch controls (optional, only present on mobile) ---
+  private touchControls?: TouchControls;
+
   // ========================================================
   //  Constructor
   // ========================================================
@@ -134,6 +138,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   // ========================================================
+  //  setTouchControls — Called by GameScene on mobile devices
+  // ========================================================
+  setTouchControls(tc: TouchControls): void {
+    this.touchControls = tc;
+  }
+
+  // ========================================================
   //  update() — Runs EVERY FRAME (~60fps)
   // ========================================================
   //
@@ -157,9 +168,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const touchingWall = touchingWallLeft || touchingWallRight;
 
     // ---- Input reading ----
-    // Support BOTH arrow keys AND WASD
-    const leftDown = this.cursors.left?.isDown || this.wasdKeys.A.isDown;
-    const rightDown = this.cursors.right?.isDown || this.wasdKeys.D.isDown;
+    // Support BOTH arrow keys AND WASD AND touch controls
+    const touch: TouchInputState | undefined = this.touchControls?.getState();
+    const leftDown = this.cursors.left?.isDown || this.wasdKeys.A.isDown || (touch?.leftDown ?? false);
+    const rightDown = this.cursors.right?.isDown || this.wasdKeys.D.isDown || (touch?.rightDown ?? false);
     // jumpDown is checked inline below via JustDown for jump buffer
 
     // ---- Coyote time ----
@@ -173,9 +185,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     // ---- Jump buffer ----
     // If jump is pressed, start the buffer timer
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.up!) ||
+    const keyboardJump = Phaser.Input.Keyboard.JustDown(this.cursors.up!) ||
         Phaser.Input.Keyboard.JustDown(this.wasdKeys.W) ||
-        Phaser.Input.Keyboard.JustDown(this.cursors.space!)) {
+        Phaser.Input.Keyboard.JustDown(this.cursors.space!);
+    if (keyboardJump || (touch?.jumpJustPressed ?? false)) {
       this.jumpBufferCounter = PLAYER.JUMP_BUFFER_MS;
     } else {
       this.jumpBufferCounter -= delta;
@@ -247,7 +260,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     //  We track "just pressed" manually because Phaser's JustDown
     //  can be unreliable across scene boundaries.
     const shiftDown = this.shiftKey.isDown;
-    this.shiftJustPressed = shiftDown && !this.shiftWasDown;
+    this.shiftJustPressed = (shiftDown && !this.shiftWasDown) || (touch?.shiftJustPressed ?? false);
     this.shiftWasDown = shiftDown;
 
     if (this.shiftJustPressed && this.dimensionManager) {
