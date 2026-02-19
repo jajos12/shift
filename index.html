@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SHIFT — Dimension Platformer</title>
+    <style>
+      /* ============================
+         GAME DEV NOTE: CSS Reset
+         ============================
+         Games need pixel-perfect control. We remove all browser default
+         margins/padding and set the background to black so there's no
+         white flash before the game canvas loads.
+      */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #0a0a0f;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        overflow: hidden; /* No scrollbars — the game IS the page */
+      }
+      #game-container {
+        /* Phaser will inject a <canvas> element inside this div */
+        position: relative;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 
+      GAME DEV NOTE: The Game Container
+      Phaser creates a <canvas> element and injects it here.
+      The canvas is where ALL rendering happens — every sprite,
+      tile, particle, and UI element is drawn onto this single canvas.
+    -->
+    <div id="game-container"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
