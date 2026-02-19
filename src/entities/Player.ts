@@ -388,6 +388,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   getHealth(): number { return this.health; }
   getMaxHealth(): number { return PLAYER.MAX_HEALTH; }
   getPlayerState(): PlayerState { return this.playerState; }
+  isPlayerInvincible(): boolean { return this.isInvincible; }
 
   resetHealth(): void {
     this.health = PLAYER.MAX_HEALTH;

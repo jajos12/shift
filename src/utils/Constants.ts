@@ -27,7 +27,7 @@ export const PLAYER = {
   JUMP_BUFFER_MS: 100,    // If you press jump 100ms BEFORE landing, it still counts
 
   // --- Combat ---
-  MAX_HEALTH: 5,
+  MAX_HEALTH: 3,
   INVINCIBILITY_MS: 1000, // After taking damage, you're invincible for 1 second
   KNOCKBACK_X: 200,       // Horizontal knockback when hit
   KNOCKBACK_Y: -200,      // Vertical knockback when hit

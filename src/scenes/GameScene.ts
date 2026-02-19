@@ -75,6 +75,11 @@ export class GameScene extends Phaser.Scene {
   // --- Touch controls (mobile) ---
   private touchControls!: TouchControls;
 
+  // --- Pause / Game Over state ---
+  private isPaused: boolean = false;
+  private isGameOver: boolean = false;
+  private overlayContainer?: Phaser.GameObjects.Container;
+
   constructor() {
     super('GameScene');
   }
@@ -177,9 +182,6 @@ export class GameScene extends Phaser.Scene {
     // --- Pause on ESC ---
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
 
-    // --- Restart level on R ---
-    this.input.keyboard?.on('keydown-R', () => this.restartLevel());
-
     // --- Track ground state for particles ---
     this.wasInAir = false;
   }
@@ -188,7 +190,7 @@ export class GameScene extends Phaser.Scene {
   //  update() — Runs EVERY FRAME (~60fps)
   // ========================================================
   update(time: number, delta: number): void {
-    if (this.levelComplete) return;
+    if (this.levelComplete || this.isPaused || this.isGameOver) return;
 
     // Update the player (handles all input + movement)
     this.player.update(time, delta);
@@ -397,6 +399,9 @@ export class GameScene extends Phaser.Scene {
       this.player,
       this.enemies,
       (_player, enemyObj) => {
+        // Guard: skip if player is invincible, dead, or game is over
+        if (this.player.isPlayerInvincible() || this.isGameOver || this.levelComplete) return;
+
         const enemy = enemyObj as Enemy;
         if (enemy.canDamage()) {
           this.player.takeDamage(enemy.getDamage());
@@ -453,43 +458,35 @@ export class GameScene extends Phaser.Scene {
     body.setVelocity(0, 0);
     body.setAllowGravity(false);
 
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const cx = WORLD.WIDTH / 2;
+    const cy = WORLD.HEIGHT / 2;
+
     // Dark overlay
-    this.add.rectangle(
-      WORLD.WIDTH / 2, WORLD.HEIGHT / 2,
-      WORLD.WIDTH, WORLD.HEIGHT,
-      0x000000, 0.7
-    ).setDepth(50).setScrollFactor(0);
+    this.add.rectangle(cx, cy, WORLD.WIDTH, WORLD.HEIGHT, 0x000000, 0.7)
+      .setDepth(50).setScrollFactor(0);
 
     // Victory text
-    this.add.text(WORLD.WIDTH / 2, WORLD.HEIGHT / 2 - 40, '🎉 YOU WIN! 🎉', {
-      fontSize: '48px',
-      fontFamily: 'monospace',
-      color: '#44ffaa',
+    this.add.text(cx, cy - 40, '🎉 YOU WIN! 🎉', {
+      fontSize: '48px', fontFamily: 'monospace', color: '#44ffaa',
     }).setOrigin(0.5).setDepth(51).setScrollFactor(0);
 
-    this.add.text(WORLD.WIDTH / 2, WORLD.HEIGHT / 2 + 20, 'All dimensions conquered!', {
-      fontSize: '18px',
-      fontFamily: 'monospace',
-      color: '#aaaaaa',
+    this.add.text(cx, cy + 20, 'All dimensions conquered!', {
+      fontSize: '18px', fontFamily: 'monospace', color: '#aaaaaa',
     }).setOrigin(0.5).setDepth(51).setScrollFactor(0);
 
-    const restartText = this.add.text(WORLD.WIDTH / 2, WORLD.HEIGHT / 2 + 70, '[ ENTER to play again ]', {
-      fontSize: '16px',
-      fontFamily: 'monospace',
-      color: '#44ddff',
+    const restartLabel = isMobile ? '[ Tap to play again ]' : '[ ENTER to play again ]';
+    const restartText = this.add.text(cx, cy + 70, restartLabel, {
+      fontSize: '16px', fontFamily: 'monospace', color: '#44ddff',
     }).setOrigin(0.5).setDepth(51).setScrollFactor(0);
 
     this.tweens.add({
-      targets: restartText,
-      alpha: { from: 1, to: 0 },
-      duration: 600,
-      yoyo: true,
-      repeat: -1,
+      targets: restartText, alpha: { from: 1, to: 0 },
+      duration: 600, yoyo: true, repeat: -1,
     });
 
-    this.input.keyboard?.on('keydown-ENTER', () => {
-      this.scene.start('MenuScene');
-    });
+    this.input.keyboard?.on('keydown-ENTER', () => this.scene.start('MenuScene'));
+    this.input.on('pointerdown', () => this.scene.start('MenuScene'));
   }
 
   // ========================================================
@@ -520,6 +517,20 @@ export class GameScene extends Phaser.Scene {
       fontFamily: 'monospace',
       color: '#666666',
     }).setOrigin(0.5, 0).setDepth(hudDepth).setScrollFactor(0);
+
+    // --- Mobile pause button (only on touch devices) ---
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (isMobile) {
+      const pauseBtn = this.add.text(WORLD.WIDTH - 16, 40, '⏸', {
+        fontSize: '28px',
+      }).setOrigin(1, 0).setDepth(hudDepth).setScrollFactor(0)
+        .setAlpha(0.6).setInteractive({ useHandCursor: true });
+
+      pauseBtn.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        pointer.event.stopPropagation();
+        this.togglePause();
+      });
+    }
   }
 
   // ========================================================
@@ -595,6 +606,8 @@ export class GameScene extends Phaser.Scene {
   //  handlePlayerDeath — Death sequence with effects
   // ========================================================
   private handlePlayerDeath(): void {
+    if (this.isGameOver || this.levelComplete) return;
+
     // Particle explosion
     this.particles.emitDeathBurst(this.player.x, this.player.y);
 
@@ -608,13 +621,91 @@ export class GameScene extends Phaser.Scene {
     // Hide player during death animation
     this.player.setVisible(false);
 
+    // Check: does the player have hearts left?
+    // Health is already 0 at this point (die() is called when health <= 0)
+    this.isGameOver = true;
     this.time.delayedCall(1000, () => {
-      this.restartLevel();
+      this.showGameOver();
     });
   }
 
   // ========================================================
-  //  restartLevel
+  //  showGameOver — Full game over screen with arrow nav
+  // ========================================================
+  private showGameOver(): void {
+    this.stopBGM();
+    this.physics.pause();  // Stop all physics to prevent collision glitch
+
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const cx = WORLD.WIDTH / 2;
+    const cy = WORLD.HEIGHT / 2;
+
+    const container = this.add.container(0, 0).setDepth(100).setScrollFactor(0);
+
+    // Dark overlay
+    container.add(this.add.rectangle(cx, cy, WORLD.WIDTH, WORLD.HEIGHT, 0x0a0a1a, 0.85));
+
+    // Game Over text
+    container.add(this.add.text(cx, cy - 70, 'GAME OVER', {
+      fontSize: '48px', fontFamily: 'monospace', color: '#ff4444', fontStyle: 'bold',
+    }).setOrigin(0.5));
+
+    // Level info
+    container.add(this.add.text(cx, cy - 20, `Level ${this.currentLevelIndex + 1}: ${this.currentLevel.name}`, {
+      fontSize: '16px', fontFamily: 'monospace', color: '#888899',
+    }).setOrigin(0.5));
+
+    // Menu items
+    const actions = [
+      { label: 'Retry Level', action: () => this.restartLevel() },
+      { label: 'Quit to Menu', action: () => { this.audioManager.stopAmbient(); this.stopBGM(); this.scene.start('MenuScene'); } },
+    ];
+
+    let selectedIndex = 0;
+    const textItems: Phaser.GameObjects.Text[] = [];
+
+    const updateSelection = () => {
+      textItems.forEach((t, i) => {
+        const prefix = i === selectedIndex ? '▶  ' : '   ';
+        t.setText(prefix + actions[i].label);
+        t.setColor(i === selectedIndex ? '#44ffaa' : '#666677');
+      });
+    };
+
+    actions.forEach((item, i) => {
+      const y = cy + 30 + i * 40;
+      const text = this.add.text(cx, y, item.label, {
+        fontSize: '20px', fontFamily: 'monospace', color: '#666677',
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      text.on('pointerover', () => { selectedIndex = i; updateSelection(); });
+      text.on('pointerdown', () => item.action());
+
+      container.add(text);
+      textItems.push(text);
+    });
+
+    updateSelection();
+
+    // Keyboard navigation
+    this.input.keyboard?.on('keydown-UP', () => { selectedIndex = (selectedIndex - 1 + actions.length) % actions.length; updateSelection(); });
+    this.input.keyboard?.on('keydown-DOWN', () => { selectedIndex = (selectedIndex + 1) % actions.length; updateSelection(); });
+    this.input.keyboard?.on('keydown-ENTER', () => actions[selectedIndex].action());
+    this.input.keyboard?.on('keydown-SPACE', () => actions[selectedIndex].action());
+
+    // Mobile: tap anywhere = retry
+    if (isMobile) {
+      container.add(this.add.text(cx, cy + 120, '[ Tap to Retry ]', {
+        fontSize: '14px', fontFamily: 'monospace', color: '#44ddff',
+      }).setOrigin(0.5));
+      this.input.on('pointerdown', () => this.restartLevel());
+    }
+
+    this.overlayContainer = container;
+  }
+
+  // ========================================================
+  //  restartLevel — Reset and replay current level
   // ========================================================
   private restartLevel(): void {
     this.audioManager.stopAmbient();
@@ -623,14 +714,85 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ========================================================
-  //  togglePause
+  //  togglePause — ESC menu overlay with arrow nav
   // ========================================================
   private togglePause(): void {
-    if (this.scene.isPaused()) {
-      this.scene.resume();
-    } else {
-      this.scene.pause();
+    if (this.isPaused) {
+      // --- UNPAUSE ---
+      this.isPaused = false;
+      this.overlayContainer?.destroy();
+      this.overlayContainer = undefined;
+      this.physics.resume();
+      this.input.keyboard?.removeAllListeners();
+      // Re-bind ESC after clearing listeners
+      this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
+      // Re-bind player-died
+      this.events.off('player-died');
+      this.events.on('player-died', () => this.handlePlayerDeath());
+      return;
     }
+
+    // --- PAUSE ---
+    this.isPaused = true;
+    this.physics.pause();
+
+    const cx = WORLD.WIDTH / 2;
+    const cy = WORLD.HEIGHT / 2;
+
+    const container = this.add.container(0, 0).setDepth(100).setScrollFactor(0);
+
+    // Dark overlay
+    container.add(this.add.rectangle(cx, cy, WORLD.WIDTH, WORLD.HEIGHT, 0x0a0a1a, 0.8));
+
+    // PAUSED title
+    container.add(this.add.text(cx, cy - 80, 'PAUSED', {
+      fontSize: '42px', fontFamily: 'monospace', color: '#44ddff', fontStyle: 'bold',
+    }).setOrigin(0.5));
+
+    // Menu items with arrow navigation
+    const menuItems = [
+      { label: 'Resume', action: () => this.togglePause() },
+      { label: 'Restart Level', action: () => { this.isPaused = false; this.input.keyboard?.removeAllListeners(); this.restartLevel(); } },
+      { label: 'Quit to Menu', action: () => { this.isPaused = false; this.input.keyboard?.removeAllListeners(); this.audioManager.stopAmbient(); this.stopBGM(); this.scene.start('MenuScene'); } },
+    ];
+
+    let selectedIndex = 0;
+    const textItems: Phaser.GameObjects.Text[] = [];
+
+    const updateSelection = () => {
+      textItems.forEach((t, i) => {
+        const prefix = i === selectedIndex ? '▶  ' : '   ';
+        t.setText(prefix + menuItems[i].label);
+        t.setColor(i === selectedIndex ? '#44ffaa' : '#888899');
+      });
+    };
+
+    menuItems.forEach((item, i) => {
+      const y = cy - 20 + i * 45;
+      const label = item.label;
+
+      const text = this.add.text(cx, y, label, {
+        fontSize: '20px', fontFamily: 'monospace', color: '#888899',
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      text.on('pointerover', () => { selectedIndex = i; updateSelection(); });
+      text.on('pointerdown', () => item.action());
+
+      container.add(text);
+      textItems.push(text);
+    });
+
+    updateSelection();
+
+    // Remove old keyboard listeners and set up new ones for menu
+    this.input.keyboard?.removeAllListeners();
+    this.input.keyboard?.on('keydown-UP', () => { selectedIndex = (selectedIndex - 1 + menuItems.length) % menuItems.length; updateSelection(); });
+    this.input.keyboard?.on('keydown-DOWN', () => { selectedIndex = (selectedIndex + 1) % menuItems.length; updateSelection(); });
+    this.input.keyboard?.on('keydown-ENTER', () => menuItems[selectedIndex].action());
+    this.input.keyboard?.on('keydown-SPACE', () => menuItems[selectedIndex].action());
+    this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
+
+    this.overlayContainer = container;
   }
 
   // ========================================================

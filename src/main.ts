@@ -91,7 +91,7 @@ const config: Phaser.Types.Core.GameConfig = {
   scale: {
     mode: Phaser.Scale.FIT,
     //  FIT means: scale the canvas to fit the browser window while
-    //  maintaining aspect ratio. No stretching, no cropping.
+    //  maintaining aspect ratio. All content visible, no cropping.
     autoCenter: Phaser.Scale.CENTER_BOTH,
     //  Center the canvas horizontally and vertically in the page.
   },
