@@ -24,6 +24,10 @@
 - 🏃 **Advanced Movement** — Wall-jumping, coyote time, jump buffering
 - 🌌 **Parallax Backgrounds** — Multi-layer scrolling sky, clouds, and cityscape
 
+## 📚 Learn Game Development
+
+**New to game dev?** Read the **[Game Dev Guide](GAME_DEV_GUIDE.md)** — a comprehensive, beginner-to-advanced walkthrough of every system in SHIFT. Covers the game loop, physics, tilemaps, player movement, the dimension mechanic, enemies, particles, audio, and more. All examples come directly from the source code.
+
 ## 📸 Screenshots
 
 <p align="center">
