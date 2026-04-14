@@ -91,6 +91,11 @@ export class GameScene extends Phaser.Scene {
     this.currentLevelIndex = data.levelIndex ?? 0;
     this.currentLevel = ALL_LEVELS[this.currentLevelIndex];
     this.levelComplete = false;
+    this.isPaused = false;
+    this.isGameOver = false;
+    this.wasInAir = false;
+    this.jumpParticleTimer = 0;
+    this.overlayContainer = undefined;
 
     // Reset arrays that would otherwise carry stale refs from previous level
     this.enemies = [];
@@ -101,6 +106,10 @@ export class GameScene extends Phaser.Scene {
   //  create() — Build the world! Called once.
   // ========================================================
   create(): void {
+    // Scene restarts reuse the same scene instance, so we clean up transient
+    // listeners/resources on shutdown to avoid stacked handlers.
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanupScene, this);
+
     // --- Initialize audio manager (shared across levels) ---
     this.audioManager = new AudioManager();
 
@@ -184,6 +193,33 @@ export class GameScene extends Phaser.Scene {
 
     // --- Track ground state for particles ---
     this.wasInAir = false;
+  }
+
+  // ========================================================
+  //  cleanupScene() — Clear transient scene state on restart
+  // ========================================================
+  private cleanupScene(): void {
+    this.input.keyboard?.removeAllListeners();
+    this.input.removeAllListeners();
+    this.events.off('player-died');
+
+    this.overlayContainer?.destroy();
+    this.overlayContainer = undefined;
+
+    this.activeCollider?.destroy();
+    this.activeCollider = undefined;
+
+    this.enemyCollider?.destroy();
+    this.enemyCollider = undefined;
+
+    this.ambientEmitter?.destroy();
+    this.ambientEmitter = undefined;
+
+    this.touchControls?.destroy();
+    this.parallax?.destroy();
+
+    this.audioManager?.stopAmbient();
+    this.stopBGM();
   }
 
   // ========================================================
