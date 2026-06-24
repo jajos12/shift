@@ -137,6 +137,12 @@ shift/
 | 9   | The Crucible  | All mechanics combined       |
 | 10  | Convergence   | Final gauntlet               |
 
+## RL AGENT WRAPPER
+Here is a demo of the rl agent running
+https://github.com/user-attachments/assets/8265a690-4c04-4062-a9c7-6c9e2f070998
+
+
+
 ## 🛠️ Tech Stack
 
 - **Engine**: [Phaser 3](https://phaser.io/) (Arcade Physics)
