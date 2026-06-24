@@ -138,7 +138,8 @@ shift/
 | 10  | Convergence   | Final gauntlet               |
 
 ## RL AGENT WRAPPER
-Here is a demo of the rl agent running
+**Here is a demo of the rl agent being trained for  the first level**:
+
 https://github.com/user-attachments/assets/8265a690-4c04-4062-a9c7-6c9e2f070998
 
 
